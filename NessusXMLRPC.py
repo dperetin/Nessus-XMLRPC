@@ -40,6 +40,9 @@ class NessusError(Exception):
         self.info = info
         self.contents = contents
 
+    def __str__( self ):
+        return "%s: %s" % ( self.info, self.contents )
+
 class RequestError(NessusError):
     """
     General requests.
