@@ -254,11 +254,21 @@ class Nessus:
 
 		xsltlog = open( self.xsltlog, 'w' )
 		# Transform the XML using the XSL provided by Nessus for HTML reports (quietly)
-		subprocess.call(shlex.split("%s %s %s -o %s" % (self.xsltproc,self.xsl,xmlf,htmlf)), stdout=xsltlog, stderr=xsltlog)
+		cmd = "%s -o '%s' '%s' '%s'" % (self.xsltproc,htmlf,self.xsl,xmlf)
+		self.debug("Converting report: %s" % cmd)
+		ret = subprocess.call(shlex.split(cmd), stdout=xsltlog, stderr=xsltlog)
+		xsltlog.close()
+		if ret != 0:
+				self.error("Error running xsltproc: %s" % self.xsltproc)
+				self.error("xsltproc exit code: %s" % ret)
+				self.error("xsltproc output: %s" % self.xsltlog)
+				print "ERROR: report generating failed.\n"
+				print "ERROR: Please check the logfile %s and xsltproc output file %s for more information" % \
+							(self.logfile, self.xsltlog)
+				sys.exit(ret)
 		zip = zipfile.ZipFile( zipf, 'w' )
 		zip.write(htmlf,arcname=os.path.basename(htmlf))
 		zip.close()
-		xsltlog.close()
 
 	def gensummary( self, data ):
 		"""
