@@ -266,7 +266,10 @@ class Nessus:
 				print "ERROR: Please check the logfile %s and xsltproc output file %s for more information" % \
 							(self.logfile, self.xsltlog)
 				sys.exit(ret)
-		zip = zipfile.ZipFile( zipf, 'w' )
+		try:
+				zip = zipfile.ZipFile( zipf, 'w', zipfile.ZIP_DEFLATED )
+		except RuntimeError:
+				zip = zipfile.ZipFile( zipf, 'w' )
 		zip.write(htmlf,arcname=os.path.basename(htmlf))
 		zip.close()
 
