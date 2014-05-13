@@ -82,7 +82,7 @@ class ParseError(NessusError):
     pass
 
 class Scanner:
-    def __init__( self, host, port, login=None, password=None):
+    def __init__( self, host, port, login=None, password=None, debug=False):
         """
         Initialize the scanner instance by setting up a connection and authenticating
         if credentials are provided. 
@@ -95,16 +95,20 @@ class Scanner:
         @param  login:      The username for logging in to Nessus.
         @type   password:   string
         @param  password:   The password for logging in to Nessus.
+        @type   debug:      bool
+        @param  debug:      turn on debugging.
         """
         self.host = host
         self.port = port
+        self.debug = debug
         self.logger = get_logger( 'Scanner' )
         self.connection = self._connect( host, port )
         self.headers = {"Content-type":"application/x-www-form-urlencoded","Accept":"text/plain"}
 
         if login != None and password != None:
             self.login( login, password )
-    
+
+
     def _connect( self, host, port ):
         """
         Internal method for connecting to the target Nessus server.
@@ -128,15 +132,46 @@ class Scanner:
         @type   params:     string
         @param  params:     The URL encoded parameters used in the request.
         """
+        def _log_headers(headers):
+            if type(headers) == type({}):
+                for (name, value) in headers.items():
+                    self.logger.debug("  %s: %s" % (name, value))
+            elif type(headers) == type(()) or type(headers) == type([]):
+                for tup in headers:
+                    self.logger.debug("  %s: %s" % (tup[0], tup[1]))
+
         try:    
             if self.connection is None:
                 self._connect( self.host, self.port )
+            if self.debug is True:
+                self.logger.debug("Sending request: %s %s" % (method, target))
+                self.logger.debug("Params: %s" % params)
+                self.logger.debug("Headers:")
+                _log_headers(self.headers)
+
             self.connection.request( method, target, params, self.headers )
         except CannotSendRequest,ImproperConnectionState:
             self._connect( self.host, self.port)
             self.login( self.login, self.password )
             self._request( method, target, params, self.headers )
-        return self.connection.getresponse().read()
+
+        response = self.connection.getresponse()
+        response_page = response.read()
+        if self.debug is True:
+            self.logger.debug("Response: %s %s" % (response.status, response.reason))
+            self.logger.debug("Response headers:")
+            _log_headers(response.getheaders())
+            self.logger.debug(response_page)
+
+        if int(response.status) != 200:
+            if int(response.status) == 403:
+                # Session times out?
+                self.login( self.login, self.password )
+                return self._request( method, target, params, self.headers )
+
+            raise RequestError("Error sending request:", response)
+
+        return response_page
 
     def _rparse( self, parsed ):
         """
@@ -331,3 +366,6 @@ class Scanner:
         else:
             params = urlencode({'report':report})
         return self._request( "POST", "/file/report/download", params )
+
+
+# vim: expandtab sw=4 ts=4 ai

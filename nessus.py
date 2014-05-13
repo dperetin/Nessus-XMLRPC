@@ -34,19 +34,20 @@ from exceptions import KeyError
 from Logger import setup_logger, get_logger
 
 class Nessus:
-    def __init__( self, configfile, scans ):
+    def __init__( self, configfile, scans, debug=False ):
         """
         @type   configfile:     string
         @param  configfile:     Full path to a configuration file for loading defaults
         @type   scans:          list
         @param  scans:          A list() of scans assembled with all necessary context
         """
-        self.logformat      = "%s %8s %s"
         self.scans_running  = []        # Scans currently running.
         self.scans_complete = []        # Scans that have completed.
         self.scans          = scans     # Scans that remain to be started.
 
         self.started        = False     # Flag for telling when scanning has started.
+
+        self.debugging          = debug     # flag to turn of debugging low level stuff.
 
         # Parse the configuration file to set everything up
         self.config = ConfigParser.ConfigParser()
@@ -59,7 +60,10 @@ class Nessus:
                         'critical': logging.CRITICAL }
         # Core settings
         self.logfile     = self.config.get( 'core', 'logfile' )
-        self.loglevel    = loglevels[self.config.get( 'core', 'loglevel' )]
+        if self.debugging is True:
+            self.loglevel = logging.DEBUG
+        else:
+            self.loglevel = loglevels[self.config.get( 'core', 'loglevel' )]
 
         # Setup some basic logging.
         setup_logger(self.logfile, self.loglevel)
@@ -82,6 +86,11 @@ class Nessus:
         self.debug( "CONF core.sleepmax = %d" % self.sleepmax )
         self.sleepmin    = self.config.getint( 'core', 'sleepmin')
         self.debug( "CONF core.sleepmin = %d" % self.sleepmin )
+
+        # command line argument takes precedence ...
+        if self.debugging is not True:
+            self.debugging = self.config.getboolean( 'core', 'debug' )
+        self.debug( "CONF core.debug = %s" % self.debugging )
 
         # SMTP settings
         self.emailto     = self.config.get( 'smtp', 'to' )
@@ -107,7 +116,7 @@ class Nessus:
 
         try:
             self.info("Nessus scanner started.")
-            self.scanner = Scanner( self.server, self.port, self.user, self.password )
+            self.scanner = Scanner( self.server, self.port, self.user, self.password, self.debugging )
             self.info("Connected to Nessus server; authenticated to server '%s' as user '%s'" % (self.server,self.user))
         except socket.error as (errno,strerror):
             self.error("Socket error encountered while connecting to Nessus server: %s. User: '%s', Server: '%s', Port: %s" % (strerror,self.user,self.server,self.port))
@@ -399,6 +408,7 @@ if __name__ == "__main__":
     parser.add_option("-p", dest='policy', help="policy (on server-side) to use in the scan")
     parser.add_option("-f", dest='infile', help="input file with multiple scans to run")
     parser.add_option("-c", dest='configfile', default='nessus.conf', help="configuration file to use")
+    parser.add_option("-d", dest='debug', action='store_true', default=False, help="Turn on debugging.")
 
     (options,args) = parser.parse_args()
 
@@ -412,7 +422,7 @@ if __name__ == "__main__":
             for line in f:
                 scan = line.strip().split(',')
                 scans.append({'name':scan[0],'target':scan[1],'policy':scan[2]})
-            x = Nessus( options.configfile, scans )
+            x = Nessus( options.configfile, scans, debug=options.debug )
             scans = x.start()
         elif options.target is not None and options.infile is None:
             # Start with a single scan.
@@ -420,7 +430,7 @@ if __name__ == "__main__":
                options.target is not None and \
                options.policy is not None:
                 scan = [{ 'name' : options.name, 'target' : options.target, 'policy' : options.policy }]
-                x = Nessus( options.configfile, scan )
+                x = Nessus( options.configfile, scan, debug=options.debug )
                 scans = x.start()
             else:
                 print "HARD ERROR: Incorrect usage.\n"
