@@ -23,8 +23,7 @@ from NessusXMLRPC import Scanner,ParseError
 from optparse import OptionParser
 from random import randint
 from time import sleep
-from logging.handlers import WatchedFileHandler
-from datetime import datetime
+from datetime import datetime, date
 
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
@@ -32,6 +31,7 @@ from email.mime.text import MIMEText
 from email import Encoders
 
 from exceptions import KeyError
+from Logger import setup_logger, get_logger
 
 class Nessus:
     def __init__( self, configfile, scans ):
@@ -62,10 +62,8 @@ class Nessus:
         self.loglevel    = loglevels[self.config.get( 'core', 'loglevel' )]
 
         # Setup some basic logging.
-        self.logger = logging.getLogger('Nessus')
-        self.logger.setLevel(self.loglevel)
-        self.loghandler = WatchedFileHandler( self.logfile )
-        self.logger.addHandler(self.loghandler)
+        setup_logger(self.logfile, self.loglevel)
+        self.logger = get_logger('Nessus')
 
         self.debug( "CONF configfile = %s" % configfile )
         self.debug( "Logger initiated; Logfile: %s, Loglevel: %s" % (self.logfile,self.loglevel))
@@ -350,35 +348,35 @@ class Nessus:
         @type   msg:    string
         @param  msg:    Debug message to be written to the log.
         """
-        self.logger.debug( self.logformat % (datetime.now(),'DEBUG',msg))
+        self.logger.debug( msg )
 
     def info( self, msg ):
         """
         @type   msg:    string
         @param  msg:    Info message to be written to the log.
         """
-        self.logger.info( self.logformat % (datetime.now(),'INFO',msg))
+        self.logger.info( msg )
 
     def warning( self, msg ):
         """
         @type   msg:    string
         @param  msg:    Warning message to be written to the log.
         """
-        self.logger.warning( self.logformat % (datetime.now(),'WARNING',msg))
+        self.logger.warning( msg )
 
     def error( self, msg ):
         """
         @type   msg:    string
         @param  msg:    Error message to be written to the log.
         """
-        self.logger.info( self.logformat % (datetime.now(),'ERROR',msg))
+        self.logger.info( msg )
 
     def critical( self, msg ):
         """
         @type   msg:    string
         @param  msg:    Critical message to be written to the log.
         """
-        self.logger.critical( self.logformat % (datetime.now(),'CRITICAL',msg))
+        self.logger.critical( msg )
 
 
 #############################################################################################################
