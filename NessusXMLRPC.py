@@ -105,8 +105,9 @@ class Scanner:
         self.connection = self._connect( host, port )
         self.headers = {"Content-type":"application/x-www-form-urlencoded","Accept":"text/plain"}
 
-        if login != None and password != None:
-            self.login( login, password )
+        self.username = login
+        self.password = password
+        self.login()
 
 
     def _connect( self, host, port ):
@@ -152,8 +153,8 @@ class Scanner:
             self.connection.request( method, target, params, self.headers )
         except CannotSendRequest,ImproperConnectionState:
             self._connect( self.host, self.port)
-            self.login( self.login, self.password )
-            self._request( method, target, params, self.headers )
+            self.login()
+            self.connection.request( method, target, params, self.headers )
 
         response = self.connection.getresponse()
         response_page = response.read()
@@ -166,8 +167,10 @@ class Scanner:
         if int(response.status) != 200:
             if int(response.status) == 403:
                 # Session times out?
-                self.login( self.login, self.password )
-                return self._request( method, target, params, self.headers )
+                if self.login():
+                    return self._request( method, target, params )
+                else:
+                    raise LoginError("Login credentials needed to access: ", target)
 
             raise RequestError("Error sending request:", response)
 
@@ -218,19 +221,16 @@ class Scanner:
         except Exception:
             raise ParseError( "Error parsing XML", response )
 
-    def login( self, login, password, seq=randint(SEQMIN,SEQMAX) ):
+    def login( self, seq=randint(SEQMIN,SEQMAX) ):
         """
         Log in to the Nessus server and preserve the token value for subsequent requests.
+        Returns True for successful login, False when credentials weren't set. Login failure throws an exception.
 
-        @type   login:      string
-        @param  login:      The username for logging in to Nessus.
-        @type   password:   string
-        @param  password:   The password for logging in to Nessus.
         @type   seq:        number
         @param  seq:        A sequence number that will be echoed back for unique identification (optional).
         """
-        self.username = login
-        self.password = password
+        if self.username is None or self.password is None:
+            return False
 
         params      = urlencode({ 'login':self.username, 'password':self.password, 'seq':seq})
         response    = self._request( "POST", "/login", params )
@@ -245,6 +245,8 @@ class Scanner:
             self.headers["Cookie"] = "token=%s" % self.token    # Persist token value for subsequent requests
         else:
             raise LoginError( "Unable to login", contents )
+
+        return True
 
     def logout( self, seq=randint(SEQMIN,SEQMAX) ):
         """
