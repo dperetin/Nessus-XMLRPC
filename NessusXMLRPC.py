@@ -201,8 +201,8 @@ class Scanner:
         response    = self._request( "POST", "/login", params )
         parsed      = self.parse( response )
 
+        contents        = parsed['contents']
         if parsed['status'] == "OK":
-            contents        = parsed['contents']
             self.token      = contents['token']     # Actual token value
             user            = contents['user']      # User dict (admin status, user name)
             self.isadmin    = user['admin']         # Is the logged in user an admin?
