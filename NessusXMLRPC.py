@@ -27,6 +27,8 @@ from time import sleep
 
 from exceptions import Exception
 
+from Logger import get_logger
+
 # Arbitary minimum and maximum values for random sequence num
 SEQMIN = 10000
 SEQMAX = 99999
@@ -96,6 +98,7 @@ class Scanner:
         """
         self.host = host
         self.port = port
+        self.logger = get_logger( 'Scanner' )
         self.connection = self._connect( host, port )
         self.headers = {"Content-type":"application/x-www-form-urlencoded","Accept":"text/plain"}
 
