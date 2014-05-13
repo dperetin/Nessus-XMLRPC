@@ -102,11 +102,12 @@ class Scanner:
         self.port = port
         self.debug = debug
         self.logger = get_logger( 'Scanner' )
-        self.connection = self._connect( host, port )
+        self.connection = None
         self.headers = {"Content-type":"application/x-www-form-urlencoded","Accept":"text/plain"}
 
         self.username = login
         self.password = password
+        self._connect( host, port )
         self.login()
 
 
