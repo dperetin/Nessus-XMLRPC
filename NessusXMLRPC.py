@@ -275,8 +275,8 @@ class Scanner:
         response    = self._request( "POST", "/policy/list", params)
         parsed      = self.parse( response )
 
+        contents = parsed['contents']
         if parsed['status'] == "OK":
-            contents = parsed['contents']
             policies = contents['policies']         # Should be an iterable list of policies
         else:
             raise PolicyError( "Unable to get policy list", contents )
@@ -299,8 +299,8 @@ class Scanner:
         response    = self._request( "POST", "/scan/new", params)
         parsed      = self.parse( response )
 
+        contents = parsed['contents']
         if parsed['status'] == "OK":
-            contents = parsed['contents']
             return contents['scan']                 # Return what you can about the scan
         else:
             raise ScanError("Unable to start scan", contents )
@@ -348,9 +348,15 @@ class Scanner:
         response    = self._request( "POST", "/report/list", params)
         parsed      = self.parse( response )
 
+        contents = parsed['contents']
         if parsed['status'] == "OK":
-            contents = parsed['contents']
-            return contents['reports']              # Return an iterable list of reports
+            reports = contents['reports']
+            if type(reports) is dict:
+                # We've only got one report, put it into a list
+                temp = reports
+                reports = list()
+                reports.append(temp['report'])
+            return reports              # Return an iterable list of reports
         else:
             raise ReportError( "Unable to get reports.", contents )
 
