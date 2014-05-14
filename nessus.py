@@ -88,7 +88,7 @@ class Nessus:
         self.debug( "CONF core.sleepmin = %d" % self.sleepmin )
 
         # command line argument takes precedence ...
-        if self.debugging is not True:
+        if self.debugging is not True and self.config.has_option('core', 'debug'):
             self.debugging = self.config.getboolean( 'core', 'debug' )
         self.debug( "CONF core.debug = %s" % self.debugging )
 
