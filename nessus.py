@@ -220,6 +220,7 @@ class Nessus:
         for scan in self.scans_complete:
             pname   = scan['scan_name'].replace(' ','')
 
+            errors  = self.scanner.getErrors( scan )
             data    = self.scanner.reportDownload( scan['uuid'] )
             xmlf    = os.path.join( self.reports, pname+'.xml' )
             htmlf   = os.path.join( self.reports, pname+'.html')
@@ -234,7 +235,7 @@ class Nessus:
             self.info("HTML report saved as '%s'" % htmlf)
 
             # Put together the text of the email with the report attached
-            self.send_report( "Report: %s" % scan['scan_name'], self.gensummary(data), zipf)
+            self.send_report( "Report: %s" % scan['scan_name'], self.gensummary(data, errors), zipf)
             self.info("Email report sent to '%s' from '%s' including '%s'" % ( self.emailto,self.emailfrom,zipf))
 
     def genreport( self, data, xmlf, htmlf, zipf ):
@@ -276,7 +277,7 @@ class Nessus:
         zip.write(htmlf,arcname=os.path.basename(htmlf))
         zip.close()
 
-    def gensummary( self, data ):
+    def gensummary( self, data, errors ):
         """
         Generate a simple summary as the contents of the email report to be sent.
 
@@ -313,7 +314,18 @@ class Nessus:
             for item in host.getiterator("ReportItem"):
                 severity[item.attrib['severity']] += 1
 
-        return "Scan Name: %25s\nTarget(s): %25s\nPolicy: %28s\n\nRisk Summary\n%s\n%15s %3s\n%15s %3s\n%15s %3s\n\n%15s %3s" % ( report, prefs['TARGET'], policy,'-'*36,'High', severity['3'], 'Medium', severity['2'], 'Low', severity['1'], 'Open Ports', severity['0'])
+        summary = "Scan Name: %25s\nTarget(s): %25s\nPolicy: %28s\n\nRisk Summary\n%s\n%15s %3s\n%15s %3s\n%15s %3s\n\n%15s %3s" % ( report, prefs['TARGET'], policy,'-'*36,'High', severity['3'], 'Medium', severity['2'], 'Low', severity['1'], 'Open Ports', severity['0'])
+        if errors is not None and 'error' in errors:
+            summary += "\n\nError(s) during scan:\n%s\n" % ('-' * 21, )
+            error = errors['error']
+            if type(error) == type({}):
+                error = [error,]
+
+            for err in error:
+                errstr = "  %s\n  %s\n  Severity: %s\n" % (err['title'], err['message'], err['severity'])
+                summary += errstr
+
+        return summary
 
     def send_report( self, subject, body, attachment, apptype='x/zip'):
         """
