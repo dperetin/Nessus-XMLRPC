@@ -283,6 +283,19 @@ class Scanner:
             raise PolicyError( "Unable to get policy list", contents )
         return policies
 
+    def getErrors( self, scan, seq=randint(SEQMIN,SEQMAX) ):
+
+        params = urlencode( {'report':scan['uuid'],'seq':seq} )
+        response = self._request( "POST", "/report/errors", params )
+
+        parsed = self.parse( response )
+        contents = parsed['contents']
+
+        if parsed['status'] == "OK":
+            return contents['errors']                 # Return the collected errors.
+        else:
+            raise ReportError( "Unable to get error status for scan job: ", (scan['uuid'], contents['errors']) )
+
     def scanNew( self, scan_name, target, policy_id, seq=randint(SEQMIN,SEQMAX)):
         """
         Start up a new scan on the Nessus server immediately.
