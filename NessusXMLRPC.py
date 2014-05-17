@@ -27,6 +27,8 @@ from time import sleep
 
 from exceptions import Exception
 
+from Logger import get_logger
+
 # Arbitary minimum and maximum values for random sequence num
 SEQMIN = 10000
 SEQMAX = 99999
@@ -80,7 +82,7 @@ class ParseError(NessusError):
     pass
 
 class Scanner:
-    def __init__( self, host, port, login=None, password=None):
+    def __init__( self, host, port, login=None, password=None, debug=False):
         """
         Initialize the scanner instance by setting up a connection and authenticating
         if credentials are provided. 
@@ -93,15 +95,22 @@ class Scanner:
         @param  login:      The username for logging in to Nessus.
         @type   password:   string
         @param  password:   The password for logging in to Nessus.
+        @type   debug:      bool
+        @param  debug:      turn on debugging.
         """
         self.host = host
         self.port = port
-        self.connection = self._connect( host, port )
+        self.debug = debug
+        self.logger = get_logger( 'Scanner' )
+        self.connection = None
         self.headers = {"Content-type":"application/x-www-form-urlencoded","Accept":"text/plain"}
 
-        if login != None and password != None:
-            self.login( login, password )
-    
+        self.username = login
+        self.password = password
+        self._connect( host, port )
+        self.login()
+
+
     def _connect( self, host, port ):
         """
         Internal method for connecting to the target Nessus server.
@@ -125,15 +134,48 @@ class Scanner:
         @type   params:     string
         @param  params:     The URL encoded parameters used in the request.
         """
+        def _log_headers(headers):
+            if type(headers) == type({}):
+                for (name, value) in headers.items():
+                    self.logger.debug("  %s: %s" % (name, value))
+            elif type(headers) == type(()) or type(headers) == type([]):
+                for tup in headers:
+                    self.logger.debug("  %s: %s" % (tup[0], tup[1]))
+
         try:    
             if self.connection is None:
                 self._connect( self.host, self.port )
+            if self.debug is True:
+                self.logger.debug("Sending request: %s %s" % (method, target))
+                self.logger.debug("Params: %s" % params)
+                self.logger.debug("Headers:")
+                _log_headers(self.headers)
+
             self.connection.request( method, target, params, self.headers )
         except CannotSendRequest,ImproperConnectionState:
             self._connect( self.host, self.port)
-            self.login( self.login, self.password )
-            self._request( method, target, params, self.headers )
-        return self.connection.getresponse().read()
+            self.login()
+            self.connection.request( method, target, params, self.headers )
+
+        response = self.connection.getresponse()
+        response_page = response.read()
+        if self.debug is True:
+            self.logger.debug("Response: %s %s" % (response.status, response.reason))
+            self.logger.debug("Response headers:")
+            _log_headers(response.getheaders())
+            self.logger.debug(response_page)
+
+        if int(response.status) != 200:
+            if int(response.status) == 403:
+                # Session times out?
+                if self.login():
+                    return self._request( method, target, params )
+                else:
+                    raise LoginError("Login credentials needed to access: ", target)
+
+            raise RequestError("Error sending request:", response)
+
+        return response_page
 
     def _rparse( self, parsed ):
         """
@@ -180,26 +222,23 @@ class Scanner:
         except Exception:
             raise ParseError( "Error parsing XML", response )
 
-    def login( self, login, password, seq=randint(SEQMIN,SEQMAX) ):
+    def login( self, seq=randint(SEQMIN,SEQMAX) ):
         """
         Log in to the Nessus server and preserve the token value for subsequent requests.
+        Returns True for successful login, False when credentials weren't set. Login failure throws an exception.
 
-        @type   login:      string
-        @param  login:      The username for logging in to Nessus.
-        @type   password:   string
-        @param  password:   The password for logging in to Nessus.
         @type   seq:        number
         @param  seq:        A sequence number that will be echoed back for unique identification (optional).
         """
-        self.username = login
-        self.password = password
+        if self.username is None or self.password is None:
+            return False
 
         params      = urlencode({ 'login':self.username, 'password':self.password, 'seq':seq})
         response    = self._request( "POST", "/login", params )
         parsed      = self.parse( response )
 
+        contents        = parsed['contents']
         if parsed['status'] == "OK":
-            contents        = parsed['contents']
             self.token      = contents['token']     # Actual token value
             user            = contents['user']      # User dict (admin status, user name)
             self.isadmin    = user['admin']         # Is the logged in user an admin?
@@ -207,6 +246,8 @@ class Scanner:
             self.headers["Cookie"] = "token=%s" % self.token    # Persist token value for subsequent requests
         else:
             raise LoginError( "Unable to login", contents )
+
+        return True
 
     def logout( self, seq=randint(SEQMIN,SEQMAX) ):
         """
@@ -235,12 +276,25 @@ class Scanner:
         response    = self._request( "POST", "/policy/list", params)
         parsed      = self.parse( response )
 
+        contents = parsed['contents']
         if parsed['status'] == "OK":
-            contents = parsed['contents']
             policies = contents['policies']         # Should be an iterable list of policies
         else:
             raise PolicyError( "Unable to get policy list", contents )
         return policies
+
+    def getErrors( self, scan, seq=randint(SEQMIN,SEQMAX) ):
+
+        params = urlencode( {'report':scan['uuid'],'seq':seq} )
+        response = self._request( "POST", "/report/errors", params )
+
+        parsed = self.parse( response )
+        contents = parsed['contents']
+
+        if parsed['status'] == "OK":
+            return contents['errors']                 # Return the collected errors.
+        else:
+            raise ReportError( "Unable to get error status for scan job: ", (scan['uuid'], contents['errors']) )
 
     def scanNew( self, scan_name, target, policy_id, seq=randint(SEQMIN,SEQMAX)):
         """
@@ -259,8 +313,8 @@ class Scanner:
         response    = self._request( "POST", "/scan/new", params)
         parsed      = self.parse( response )
 
+        contents = parsed['contents']
         if parsed['status'] == "OK":
-            contents = parsed['contents']
             return contents['scan']                 # Return what you can about the scan
         else:
             raise ScanError("Unable to start scan", contents )
@@ -308,9 +362,15 @@ class Scanner:
         response    = self._request( "POST", "/report/list", params)
         parsed      = self.parse( response )
 
+        contents = parsed['contents']
         if parsed['status'] == "OK":
-            contents = parsed['contents']
-            return contents['reports']              # Return an iterable list of reports
+            reports = contents['reports']
+            if type(reports) is dict:
+                # We've only got one report, put it into a list
+                temp = reports
+                reports = list()
+                reports.append(temp['report'])
+            return reports              # Return an iterable list of reports
         else:
             raise ReportError( "Unable to get reports.", contents )
 
@@ -328,3 +388,6 @@ class Scanner:
         else:
             params = urlencode({'report':report})
         return self._request( "POST", "/file/report/download", params )
+
+
+# vim: expandtab sw=4 ts=4 ai
