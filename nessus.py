@@ -120,7 +120,7 @@ class Nessus:
             self.info("Connected to Nessus server; authenticated to server '%s' as user '%s'" % (self.server,self.user))
         except socket.error as (errno,strerror):
             self.error("Socket error encountered while connecting to Nessus server: %s. User: '%s', Server: '%s', Port: %s" % (strerror,self.user,self.server,self.port))
-            return None
+            sys.exit(1)
 
     def start( self ):
         """
