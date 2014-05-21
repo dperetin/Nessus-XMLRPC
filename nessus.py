@@ -66,7 +66,7 @@ class Nessus:
             self.loglevel = loglevels[self.config.get( 'core', 'loglevel' )]
 
         # Setup some basic logging.
-        setup_logger(self.logfile, self.loglevel)
+        setup_logger(self.logfile, self.loglevel, debug=debug)
         self.logger = get_logger('Nessus')
 
         self.debug( "CONF configfile = %s" % configfile )
