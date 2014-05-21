@@ -17,15 +17,28 @@ limitations under the License.
 """
 import logging
 import logging.handlers
+import os
+import sys
+
 
 log_format = logging.Formatter('%(asctime)s %(name)s %(levelname)8s %(message)s')
 
-def setup_logger(logfile=None, loglevel=logging.INFO):
+
+def setup_logger(logfile=None, loglevel=logging.INFO, debug=False):
     if logfile is not None:
         loghandler = logging.handlers.WatchedFileHandler( logfile )
         loghandler.setFormatter( log_format )
         loghandler.setLevel( loglevel )
         logging.getLogger().addHandler( loghandler )
+
+    if os.isatty(sys.stdout.fileno()):
+        console_loglevel = loglevel
+        if not debug:
+            console_loglevel = logging.INFO
+        conlogger = logging.StreamHandler()
+        conlogger.setFormatter( logging.Formatter("%(message)s") )
+        conlogger.setLevel( console_loglevel )
+        logging.getLogger().addHandler( conlogger )
 
     logging.getLogger().setLevel( loglevel )
 
