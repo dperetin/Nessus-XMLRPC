@@ -327,7 +327,7 @@ class Nessus:
 
         return summary
 
-    def send_report( self, subject, body, attachment, apptype='x/zip'):
+    def send_report( self, subject, body, attachment, apptype='zip'):
         """
         Send the email report to its destination.
 
