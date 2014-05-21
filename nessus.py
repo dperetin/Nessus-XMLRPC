@@ -35,8 +35,10 @@ from email import Encoders
 from exceptions import KeyError
 from Logger import setup_logger, get_logger
 
+default_timeout = 180
+
 class Nessus:
-    def __init__( self, configfile, scans, debug=False ):
+    def __init__( self, configfile, scans, debug=False, timeout=None ):
         """
         @type   configfile:     string
         @param  configfile:     Full path to a configuration file for loading defaults
@@ -49,7 +51,9 @@ class Nessus:
 
         self.started        = False     # Flag for telling when scanning has started.
 
-        self.debugging          = debug     # flag to turn of debugging low level stuff.
+        self.debugging      = debug     # flag to turn of debugging low level stuff.
+
+        self.timeout        = timeout   # Max time to try to connect to the host. In seconds, or 0 if disabled.
 
         # Parse the configuration file to set everything up
         self.config = ConfigParser.ConfigParser()
@@ -89,6 +93,10 @@ class Nessus:
         self.sleepmin    = self.config.getint( 'core', 'sleepmin')
         self.debug( "CONF core.sleepmin = %d" % self.sleepmin )
 
+        if self.config.has_option('core', 'timeput'):
+            if self.timeout is not None and self.timeout == default_timeout:
+                self.timeout = self.config.getint('core', 'timeout')
+
         # command line argument takes precedence ...
         if self.debugging is not True and self.config.has_option('core', 'debug'):
             self.debugging = self.config.getboolean( 'core', 'debug' )
@@ -118,7 +126,7 @@ class Nessus:
 
         try:
             self.info("Nessus scanner started.")
-            self.scanner = Scanner( self.server, self.port, self.user, self.password, self.debugging )
+            self.scanner = Scanner( self.server, self.port, self.user, self.password, timeout=self.timeout, debug=self.debugging )
             self.info("Connected to Nessus server; authenticated to server '%s' as user '%s'" % (self.server,self.user))
         except socket.error as (errno,strerror):
             self.error("Socket error encountered while connecting to Nessus server: %s. User: '%s', Server: '%s', Port: %s" % (strerror,self.user,self.server,self.port))
@@ -433,6 +441,7 @@ if __name__ == "__main__":
     parser.add_option("-f", dest='infile', help="input file with multiple scans to run")
     parser.add_option("-c", dest='configfile', default='nessus.conf', help="configuration file to use")
     parser.add_option("-d", dest='debug', action='store_true', default=False, help="Turn on debugging.")
+    parser.add_option("-T", dest='timeout', type='int', default=default_timeout, help="Connection timeout in seconds. Default: %s" % default_timeout)
 
     (options,args) = parser.parse_args()
 
@@ -446,7 +455,7 @@ if __name__ == "__main__":
             for line in f:
                 scan = line.strip().split(',')
                 scans.append({'name':scan[0],'target':scan[1],'policy':scan[2]})
-            x = Nessus( options.configfile, scans, debug=options.debug )
+            x = Nessus( options.configfile, scans, debug=options.debug, timeout=options.timeout )
             scans = x.start()
         elif options.target is not None and options.infile is None:
             # Start with a single scan.
@@ -454,7 +463,7 @@ if __name__ == "__main__":
                options.target is not None and \
                options.policy is not None:
                 scan = [{ 'name' : options.name, 'target' : options.target, 'policy' : options.policy }]
-                x = Nessus( options.configfile, scan, debug=options.debug )
+                x = Nessus( options.configfile, scan, debug=options.debug, timeout=options.timeout )
                 scans = x.start()
             else:
                 print "HARD ERROR: Incorrect usage.\n"
