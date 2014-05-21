@@ -82,7 +82,7 @@ class ParseError(NessusError):
     pass
 
 class Scanner:
-    def __init__( self, host, port, login=None, password=None, debug=False):
+    def __init__( self, host, port, login=None, password=None, timeout=60, debug=False):
         """
         Initialize the scanner instance by setting up a connection and authenticating
         if credentials are provided. 
@@ -100,6 +100,7 @@ class Scanner:
         """
         self.host = host
         self.port = port
+        self.timeout = timeout
         self.debug = debug
         self.logger = get_logger( 'Scanner' )
         self.connection = None
@@ -115,7 +116,7 @@ class Scanner:
         """
         Internal method for connecting to the target Nessus server.
         """
-        self.connection = HTTPSConnection( self.host, self.port )
+        self.connection = HTTPSConnection( self.host, self.port, timeout=self.timeout )
 
     def _request( self, method, target, params ):
         """
