@@ -186,7 +186,8 @@ class Nessus:
             self.error("Invalidating connection and sleeping before we continue")
             self.scanner.connection.close()
             self.scanner.connection = None
-            sleep(self.sleepmax)
+            sleep(randint(self.sleepmin,self.sleepmax)
+            return False
         except ParseError as e:
                         self.error("%s; %s" % (e.info,e.contents))
                         self.error("Continuing...")
