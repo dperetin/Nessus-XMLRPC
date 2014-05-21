@@ -107,20 +107,15 @@ class Scanner:
 
         self.username = login
         self.password = password
-        self._connect( host, port )
+        self._connect()
         self.login()
 
 
-    def _connect( self, host, port ):
+    def _connect( self ):
         """
         Internal method for connecting to the target Nessus server.
-
-        @type   host:       string
-        @param  host:       The hostname of the running Nessus server.
-        @type   port:       number
-        @param  port:       The port number for the XMLRPC interface on the Nessus server.
         """
-        self.connection = HTTPSConnection( host, port )
+        self.connection = HTTPSConnection( self.host, self.port )
 
     def _request( self, method, target, params ):
         """
@@ -153,7 +148,7 @@ class Scanner:
 
             self.connection.request( method, target, params, self.headers )
         except CannotSendRequest,ImproperConnectionState:
-            self._connect( self.host, self.port)
+            self._connect()
             self.login()
             self.connection.request( method, target, params, self.headers )
 
