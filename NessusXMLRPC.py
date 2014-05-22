@@ -157,7 +157,7 @@ class Scanner:
                 _log_headers(self.headers)
 
             self.connection.request(method, target, params, self.headers)
-        except CannotSendRequest, ImproperConnectionState:
+        except (CannotSendRequest, ImproperConnectionState):
             self._connect()
             self.login()
             self.connection.request(method, target, params, self.headers)
