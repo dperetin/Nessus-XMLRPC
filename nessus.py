@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# coding=utf-8
 """
 Copyright (c) 2010 HomeAway, Inc.
 All rights reserved.  http://www.homeaway.com
@@ -43,7 +44,7 @@ from Logger import setup_logger, get_logger
 default_timeout = 180
 
 
-class Nessus:
+class Nessus(object):
     def __init__(self, configfile, scans, debug=False, timeout=None):
         """
         @type   configfile:     string
@@ -139,7 +140,7 @@ class Nessus:
         except socket.error as (errno, strerror):
             self.error(
                 "Socket error encountered while connecting to Nessus server: %s. User: '%s', Server: '%s', Port: %s" % (
-                strerror, self.user, self.server, self.port))
+                    strerror, self.user, self.server, self.port))
             sys.exit(1)
 
     def start(self):
@@ -189,7 +190,7 @@ class Nessus:
                 "Scan successfully started; Owner: '%s', Name: '%s'" % (currentscan['owner'], currentscan['scan_name']))
         else:
             self.error("Unable to start scan. Name: '%s', Target: '%s', Policy: '%s'" % (
-            scan['name'], scan['target'], scan['policy']))
+                scan['name'], scan['target'], scan['policy']))
             return False
 
         # Add the newly started scan to the running least, remove it from the remaining
@@ -247,7 +248,6 @@ class Nessus:
             data = self.scanner.reportDownload(scan['uuid'])
             xmlf = os.path.join(self.reports, pname + '.xml')
             htmlf = os.path.join(self.reports, pname + '.html')
-            zipf = os.path.join(self.reports, pname + '.zip')
 
             pname = "%s_%s" % (pname, str(date.today()))
             zipf = os.path.join(self.reports, pname + '.zip')
@@ -259,7 +259,7 @@ class Nessus:
 
             # Put together the text of the email with the report attached
             self.send_report("Report: %s" % scan['scan_name'], self.gensummary(data, errors), zipf)
-            self.info("Email report sent to '%s' from '%s' including '%s'" % ( self.emailto, self.emailfrom, zipf))
+            self.info("Email report sent to '%s' from '%s' including '%s'" % (self.emailto, self.emailfrom, zipf))
 
     def genreport(self, data, xmlf, htmlf, zipf):
         """
@@ -314,7 +314,6 @@ class Nessus:
                     '4': 0}
         prefs = {}
         pref = None
-        count = 0
 
         parsed = xml.etree.ElementTree.fromstring(data)
 
@@ -338,12 +337,13 @@ class Nessus:
                 severity[item.attrib['severity']] += 1
 
         summary = "Scan Name: %25s\nTarget(s): %25s\nPolicy: %28s\n\nRisk Summary\n%s\n%15s %3s\n%15s %3s\n%15s %3s\n\n%15s %3s" % (
-        report, prefs['TARGET'], policy, '-' * 36, 'High', severity['3'], 'Medium', severity['2'], 'Low', severity['1'],
-        'Open Ports', severity['0'])
+            report, prefs['TARGET'], policy, '-' * 36, 'High', severity['3'], 'Medium', severity['2'], 'Low', severity['1'],
+            'Open Ports', severity['0'])
+
         if errors is not None and 'error' in errors:
             summary += "\n\nError(s) during scan:\n%s\n" % ('-' * 21, )
             error = errors['error']
-            if type(error) == type({}):
+            if isinstance(error, dict):
                 error = [error, ]
 
             for err in error:
@@ -356,8 +356,6 @@ class Nessus:
         """
         Send the email report to its destination.
 
-        @type   to:     string
-        @param  to:     Destination email address for the report.
         @type   subject:    string
         @param  subject:    The subject of the email message.
         @type   body:       string
@@ -465,9 +463,9 @@ def main():
     if options.configfile is not None and \
             (options.infile is not None or options.target is not None):
 
+        scans = []
         if options.infile is not None and options.target is None:
             # Start with multiple scans.
-            scans = []
             f = open(options.infile, "r")
             for line in f:
                 scan = line.strip().split(',')
@@ -476,9 +474,7 @@ def main():
             scans = x.start()
         elif options.target is not None and options.infile is None:
             # Start with a single scan.
-            if options.name is not None and \
-                            options.target is not None and \
-                            options.policy is not None:
+            if options.name is not None and options.target is not None and options.policy is not None:
                 scan = [{'name': options.name, 'target': options.target, 'policy': options.policy}]
                 x = Nessus(options.configfile, scan, debug=options.debug, timeout=options.timeout)
                 scans = x.start()

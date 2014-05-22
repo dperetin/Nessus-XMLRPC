@@ -1,4 +1,5 @@
 #!/usr/bin/python
+# coding=utf-8
 
 """
 Copyright (c) 2010 HomeAway, Inc.
@@ -33,6 +34,7 @@ from Logger import get_logger
 SEQMIN = 10000
 SEQMAX = 99999
 
+
 # Simple exceptions for error handling
 class NessusError(Exception):
     """
@@ -44,7 +46,7 @@ class NessusError(Exception):
         self.contents = contents
 
     def __str__(self):
-        return "%s: %s" % ( self.info, self.contents )
+        return "%s: %s" % (self.info, self.contents)
 
 
 class RequestError(NessusError):
@@ -89,11 +91,11 @@ class ParseError(NessusError):
     pass
 
 
-class Scanner:
+class Scanner(object):
     def __init__(self, host, port, login=None, password=None, timeout=60, debug=False):
         """
         Initialize the scanner instance by setting up a connection and authenticating
-        if credentials are provided. 
+        if credentials are provided.
 
         @type   host:       string
         @param  host:       The hostname of the running Nessus server.
@@ -106,6 +108,8 @@ class Scanner:
         @type   debug:      bool
         @param  debug:      turn on debugging.
         """
+        self.token = None
+        self.isadmin = None
         self.host = host
         self.port = port
         self.timeout = timeout
@@ -118,7 +122,6 @@ class Scanner:
         self.password = password
         self._connect()
         self.login()
-
 
     def _connect(self):
         """
@@ -140,16 +143,16 @@ class Scanner:
         """
 
         def _log_headers(headers):
-            if type(headers) == type({}):
+            if isinstance(headers, dict):
                 for (name, value) in headers.items():
                     self.logger.debug("  %s: %s" % (name, value))
-            elif type(headers) == type(()) or type(headers) == type([]):
+            elif type(headers) is tuple or type(headers) is list:
                 for tup in headers:
                     self.logger.debug("  %s: %s" % (tup[0], tup[1]))
 
         try:
             if self.connection is None:
-                self._connect(self.host, self.port)
+                self._connect()
             if self.debug is True:
                 self.logger.debug("Sending request: %s %s" % (method, target))
                 self.logger.debug("Params: %s" % params)
@@ -199,7 +202,7 @@ class Scanner:
                 if type(result) is list:
                     # Append the next parse, we're apparently in a list()
                     result.append(self._rparse(element))
-                elif type(result) is dict and result.has_key(element.tag):
+                elif type(result) is dict and element.tag in result:
                     # Change the dict() to a list() if we have multiple hits
                     tmp = result
                     result = list()
@@ -326,8 +329,8 @@ class Scanner:
 
     def quickScan(self, scan_name, target, policy_name, seq=randint(SEQMIN, SEQMAX)):
         """
-        Configure a new scan using a canonical name for the policy. Perform a lookup for the policy ID and configure the scan,
-        starting it immediately.
+        Configure a new scan using a canonical name for the policy. Perform a lookup for the policy ID and configure the
+        scan, starting it immediately.
 
         @type   scan_name:   string
         @param  scan_name:   The desired name of the scan.
@@ -354,7 +357,7 @@ class Scanner:
                     policy_id = policy['policyID']
             if policy_id is None:
                 raise PolicyError("Unable to find policy", (scan_name, target, policy_name))
-        return self.scanNew(scan_name, target, policy_id)
+        return self.scanNew(scan_name, target, policy_id, seq=seq)
 
     def reportList(self, seq=randint(SEQMIN, SEQMAX)):
         """
