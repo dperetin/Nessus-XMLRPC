@@ -422,7 +422,8 @@ class Nessus:
 
 #############################################################################################################
 
-if __name__ == "__main__":
+
+def main():
     """
     The goal with this tool is to essentially replace the command-line versions of the Nessus scanner. I
     found with the latest version that they've deprecated version 1 of the Nessus XML output preventing
@@ -446,7 +447,7 @@ if __name__ == "__main__":
     (options,args) = parser.parse_args()
 
     if  options.configfile is not None and \
-        (options.infile is not None or options.target is not None):
+            (options.infile is not None or options.target is not None):
 
         if options.infile is not None and options.target is None:
             # Start with multiple scans.
@@ -460,8 +461,8 @@ if __name__ == "__main__":
         elif options.target is not None and options.infile is None:
             # Start with a single scan.
             if options.name is not None and \
-               options.target is not None and \
-               options.policy is not None:
+                            options.target is not None and \
+                            options.policy is not None:
                 scan = [{ 'name' : options.name, 'target' : options.target, 'policy' : options.policy }]
                 x = Nessus( options.configfile, scan, debug=options.debug, timeout=options.timeout )
                 scans = x.start()
@@ -480,9 +481,11 @@ if __name__ == "__main__":
                 break
         x.info("All done; closing")
         x.close()
-        sys.exit(0)
     else:
         parser.print_help()
-        sys.exit(0)
+
+
+if __name__ == "__main__":
+    main()
 
 # vim: expandtab sw=4 ts=4 ai
