@@ -15,9 +15,10 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-import sys,subprocess,shlex,os,smtplib,logging,socket,zipfile
+import sys,subprocess,os,smtplib,logging,socket,zipfile
 import xml.etree.ElementTree
 import ConfigParser
+import chardet
 
 from NessusXMLRPC import Scanner,ParseError
 from optparse import OptionParser
@@ -28,6 +29,7 @@ from datetime import datetime, date
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
 from email.mime.text import MIMEText
+from email.header import Header
 from email import Encoders
 
 from exceptions import KeyError
@@ -259,9 +261,9 @@ class Nessus:
 
         xsltlog = open( self.xsltlog, 'w' )
         # Transform the XML using the XSL provided by Nessus for HTML reports (quietly)
-        cmd = "%s -o '%s' '%s' '%s'" % (self.xsltproc,htmlf,self.xsl,xmlf)
-        self.debug("Converting report: %s" % cmd)
-        ret = subprocess.call(shlex.split(cmd), stdout=xsltlog, stderr=xsltlog)
+        cmd = (self.xsltproc, "-o", htmlf, self.xsl, xmlf)
+        self.debug("Converting report: '%s'" % "' '".join(cmd))
+        ret = subprocess.call(cmd, stdout=xsltlog, stderr=xsltlog)
         xsltlog.close()
         if ret != 0:
                 self.error("Error running xsltproc: %s" % self.xsltproc)
@@ -348,11 +350,20 @@ class Nessus:
         message['To']       = self.emailto
         message['Subject']  = subject
 
-        message.attach( MIMEText( body ))
+        if isinstance(body, unicode):
+            message.attach( MIMEText( body, _charset='utf-8'))
+        else:
+            try:
+                enc = chardet.detect(body)
+            except UnicodeDecodeError:
+                body = body.decode('utf-8')
+                enc = chardet.detect(body)
+            message.attach( MIMEText( body, _charset=enc['encoding'] ))
+
         part = MIMEBase('application',apptype)
         part.set_payload( open( attachment, 'r').read())
         Encoders.encode_base64(part)
-        part.add_header('Content-Disposition','attachment; filename="%s"' % os.path.basename(attachment))
+        part.add_header('Content-Disposition', 'attachment', filename=(Header(os.path.basename(attachment), charset='utf-8').encode()))
         message.attach(part)
 
         conn = smtplib.SMTP(self.smtpserver, self.smtpport)
