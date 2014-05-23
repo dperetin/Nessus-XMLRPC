@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# coding=utf-8
 """
 Copyright (c) 2010 HomeAway, Inc.
 All rights reserved.  http://www.homeaway.com
@@ -17,21 +18,35 @@ limitations under the License.
 """
 import logging
 import logging.handlers
+import os
+import sys
+
 
 log_format = logging.Formatter('%(asctime)s %(name)s %(levelname)8s %(message)s')
 
-def setup_logger(logfile=None, loglevel=logging.INFO):
-    if logfile is not None:
-        loghandler = logging.handlers.WatchedFileHandler( logfile )
-        loghandler.setFormatter( log_format )
-        loghandler.setLevel( loglevel )
-        logging.getLogger().addHandler( loghandler )
 
-    logging.getLogger().setLevel( loglevel )
+def setup_logger(logfile=None, loglevel=logging.INFO, debug=False):
+    if logfile is not None:
+        loghandler = logging.handlers.WatchedFileHandler(logfile)
+        loghandler.setFormatter(log_format)
+        loghandler.setLevel(loglevel)
+        logging.getLogger().addHandler(loghandler)
+
+    if os.isatty(sys.stdout.fileno()):
+        console_loglevel = loglevel
+        if not debug:
+            console_loglevel = logging.INFO
+        conlogger = logging.StreamHandler()
+        conlogger.setFormatter(logging.Formatter("%(message)s"))
+        conlogger.setLevel(console_loglevel)
+        logging.getLogger().addHandler(conlogger)
+
+    logging.getLogger().setLevel(loglevel)
+
 
 def get_logger(name=None):
     if name is not None:
-        return logging.getLogger( name )
+        return logging.getLogger(name)
     return logging.getLogger()
 
 # vim: expandtab sw=4 ts=4 ai
